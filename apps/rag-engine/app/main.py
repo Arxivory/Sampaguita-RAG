@@ -3,13 +3,23 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import os
 from dotenv import load_dotenv
+from contextlib import asynccontextmanager
+from .services.graph_service import graph_service
+from .routers import ontology
 
 load_dotenv()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    graph_service.connect()
+    yield
+    graph_service.close()
 
 app = FastAPI(
     title="SampaguitaRAG Engine",
     description="Intelligent Clinical Processing & Medical Ontology Search Assistant",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 app.add_middleware(
@@ -20,12 +30,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(ontology.router)
+
 @app.get("/health")
 def health_check():
     return {
         "status": "online",
         "service": "sampaguita-rag-engine",
-        "version": "1.0.0"
+        "version": "1.0.0",
+        "neo4j_connected": graph_service.driver is not None
     }
 
 if __name__ == "__main__":
