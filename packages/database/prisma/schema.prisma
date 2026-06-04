@@ -1,7 +1,8 @@
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
+  extensions = [pgvector(map: "vector")]
 }
 
 generator client {
@@ -10,33 +11,33 @@ generator client {
 }
 
 model User {
-  id         String   @id @db.Uuid
-  email      String   @unique
-  fullName   String   @map("full_name") 
-  role       String
-  facility   String   @map("facility")
-  createdAt  DateTime @default(now()) @map("created_at")
+  id        String   @id @db.Uuid
+  email     String   @unique
+  fullName  String   @map("full_name") 
+  role      String
+  facility  String   @map("facility")
+  createdAt DateTime @default(now()) @map("created_at")
 
-  documents  Document[]
+  documents Document[]
 
   @@map("users")
 }
 
 model Document {
-  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  uploaderId        String          @db.Uuid @map("uploader_id")
-  title             String
-  rawExtractedText  String          @db.Text @map("raw_extracted_text")
-  createdAt         DateTime        @default(now()) @map("created_at")
+  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  uploaderId       String          @db.Uuid @map("uploader_id")
+  title            String
+  rawExtractedText String          @db.Text @map("raw_extracted_text")
+  createdAt        DateTime        @default(now()) @map("created_at")
   
-  uploader          User     @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
-  chunks            DocumentChunk[]
+  uploader         User            @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+  chunks           DocumentChunk[]
 
   @@map("documents")
 }
 
 model DocumentChunk {
-  id                BigInt   @id @default(autoincrement())
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid 
   documentId        String   @db.Uuid @map("document_id")
   chunkContent      String   @db.Text @map("chunk_content")
   mappedOntologyIds String[] @map("mapped_ontology_ids")
