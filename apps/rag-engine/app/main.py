@@ -5,7 +5,7 @@ import os
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 from .services.graph_service import graph_service
-from .routers import ontology
+from .routers import ontology, seed
 
 load_dotenv()
 
@@ -31,6 +31,7 @@ app.add_middleware(
 )
 
 app.include_router(ontology.router)
+app.include_router(seed.router)
 
 @app.get("/health")
 def health_check():
