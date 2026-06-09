@@ -1,10 +1,22 @@
 import { Controller, Post, Get, Param, Delete, UseInterceptors, 
   UploadedFile, Body, BadRequestException, HttpCode, HttpStatus, 
-  Query } from '@nestjs/common';
+  Query, 
+  UseGuards,
+  createParamDecorator,
+  ExecutionContext } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { DocumentsService } from './documents.service';
+import { SupabaseAuthGuard } from '../supabase-auth.guard';
+
+export const AuthenticatedUser = createParamDecorator(
+  (data: unknown, ctx: ExecutionContext) => {
+    const request = ctx.switchToHttp().getRequest();
+    return request.user;
+  }
+);
 
 @Controller('documents')
+@UseGuards(SupabaseAuthGuard)
 export class DocumentsController {
   constructor(private readonly documentsService: DocumentsService) {}
 
@@ -13,10 +25,12 @@ export class DocumentsController {
   @UseInterceptors(FileInterceptor('file'))
   async ingestPatientChart(
     @UploadedFile() file: Express.Multer.File,
+    @AuthenticatedUser() user: any,
     @Body('title') title: string,
-    @Body('uploaderId') uploaderId: string,
     @Body('rawText') rawText?: string,
   ) {
+    const uploaderId = user.id;
+
     if (!uploaderId) throw new BadRequestException('Uploader tracking identity parameter is required.');
 
     let chartContent = '';
