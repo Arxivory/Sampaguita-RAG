@@ -1,4 +1,6 @@
-import { Controller, Post, Get, Param, Delete, UseInterceptors, UploadedFile, Body, BadRequestException, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Param, Delete, UseInterceptors, 
+  UploadedFile, Body, BadRequestException, HttpCode, HttpStatus, 
+  Query } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { DocumentsService } from './documents.service';
 
@@ -28,6 +30,18 @@ export class DocumentsController {
 
     const documentTitle = title || `Chart Ingestion - ${new Date().toLocaleDateString('en-PH')}`;
     return await this.documentsService.processAndSaveChart(uploaderId, documentTitle, chartContent);
+  }
+
+  @Get('search')
+  async searchPatientCharts(
+    @Query('q') query: string,
+    @Query('limit') limit?: number
+  ) {
+    if (!query) 
+      throw new BadRequestException('Search query parameter "q" is required.');
+
+    const parsedLimit = limit ? Number(limit) : 3;
+    return await this.documentsService.semanticSearch(query, parsedLimit);
   }
 
   @Get()

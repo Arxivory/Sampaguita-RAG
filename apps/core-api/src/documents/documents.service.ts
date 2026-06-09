@@ -76,6 +76,52 @@ export class DocumentsService {
     }
   }
 
+  async semanticSearch(query: string, limit: number = 3) {
+    try {
+      const vectorResponse = await axios.post(`${this.ragEngineUrl}/rag/vector-search-proxy`, {
+        query,
+        limit
+      });
+
+      const queryEmbedding = vectorResponse.data.embedding;
+      const vectorString = `[${queryEmbedding.join(',')}]`;
+
+      const matchingChunks = await this.prisma.client.$queryRawUnsafe<any[]>(`
+        SELECT
+          id,
+          document_id as "documentId",
+          chunk_content as "chunkContent",
+          mapped_ontology_ids as "mappedOntologyIds",
+          1 - (embedding <=> '${vectorString}'::vector) AS "similarityScore"
+        FROM document_chunks
+        WHERE embedding IS NOT NULL
+        ORDER BY embedding <=> '${vectorString}'::vector ASC
+        LIMIT ${limit}
+      `, limit);
+
+      return {
+        query,
+        resultsCount: matchingChunks.length,
+        matches: matchingChunks.map(chunk => {
+          const score = chunk.similarityScore !== null && !isNaN(Number(chunk.similarityScore))
+            ? parseFloat(chunk.similarityScore).toFixed(4)
+            : '0.0000';
+
+          return {
+            chunkId: chunk.id,
+            documentId: chunk.documentId,
+            content: chunk.chunkContent,
+            ontologyCodes: chunk.mappedOntologyIds,
+            confidence: score
+          };
+        })
+      };
+    } catch (error) {
+      console.error('Semantic Search Error:', error.message);
+      throw new InternalServerErrorException('Failed to perform semantic search on clinical charts.');
+    }
+  }
+
   async findAll() {
     return await this.prisma.client.document.findMany({
       orderBy: { createdAt: 'desc' },
