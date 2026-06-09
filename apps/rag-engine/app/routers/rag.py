@@ -63,3 +63,24 @@ def process_document(payload: IngestionRequest):
     except Exception as e:
         print(f"RAG Processing Pipeline Abort: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal AI processing failure: {str(e)}")
+
+class SearchRequest(BaseModel):
+    query: str
+    limit: int = 5
+
+@router.post("/vector-search-proxy")
+def generate_query_vector(payload: SearchRequest):
+    """
+    Converts a clinician's free-text natural language search query into 
+    its structural vector representation to enable vector similarity search.
+    """
+    try:
+        query_vector = text_processor.generate_embeddings([payload.query])[0]
+        
+        return {
+            "query": payload.query,
+            "vector_dimension": len(query_vector),
+            "embedding": query_vector
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to vectorize search string: {str(e)}")

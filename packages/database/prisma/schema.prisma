@@ -41,6 +41,8 @@ model DocumentChunk {
   documentId        String   @db.Uuid @map("document_id")
   chunkContent      String   @db.Text @map("chunk_content")
   mappedOntologyIds String[] @map("mapped_ontology_ids")
+
+  embedding        Unsupported("vector(384)")?
   
   document          Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
 

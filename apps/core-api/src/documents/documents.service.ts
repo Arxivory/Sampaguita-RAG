@@ -4,6 +4,17 @@ import axios from 'axios';
 import { ConfigService } from '@nestjs/config/dist/config.service';
 import { UsersService } from 'src/users/users.service';
 
+interface FastAPIChunkPayload {
+  chunk_content: string;
+  embedding: number[];
+  mapped_ontology_ids: string[];
+}
+
+interface FastAPIRagResponse {
+  chunks_processed: number;
+  payloads: FastAPIChunkPayload[];
+}
+
 @Injectable()
 export class DocumentsService {
   private readonly ragEngineUrl: string;
@@ -17,8 +28,15 @@ export class DocumentsService {
   }
 
   async processAndSaveChart(uploaderId: string, title: string, text: string) {
+    await this.usersService.ensureUserExists(uploaderId);
+
     try {
-      await this.usersService.ensureUserExists(uploaderId);
+      const ragResponse = await axios.post<FastAPIRagResponse>(
+        `${this.ragEngineUrl}/rag/process-document`,
+        { text }
+      );
+
+      const { chunks_processed, payloads } = ragResponse.data;
 
       const document = await this.prisma.client.document.create({
         data: {
@@ -28,36 +46,30 @@ export class DocumentsService {
         },
       });
 
-      const mockChunkText = text.slice(0, 1000); 
+      for (const payload of payloads) {
+        const vectorString = `[${payload.embedding.join(',')}]`;
+        const ontologyArrayFormatted = payload.mapped_ontology_ids.map(id => `'${id}'`).join(', ');
+        const ontologyPgArray = `{${payload.mapped_ontology_ids.join(',')}}`;
 
-      let detectedOntologies: string[] = [];
-      try {
-        const response = await axios.get(`${this.ragEngineUrl}/ontology/lineage/I21`);
-        if (response.data && response.data.matching_hierarchy_codes) {
-          detectedOntologies = response.data.matching_hierarchy_codes;
-        }
-      } catch (error) {
-        console.warn('Downstream RAG engine unreachable, skipping real-time ontology enhancement.', error.message);
+        await this.prisma.client.$executeRawUnsafe(`
+          INSERT INTO "document_chunks" (id, document_id, chunk_content, mapped_ontology_ids, embedding)
+          VALUES (
+            gen_random_uuid(), 
+            '${document.id}'::uuid, 
+            $1, 
+            $2::text[], 
+            '${vectorString}'::vector
+          )
+        `, payload.chunk_content, ontologyPgArray);
       }
-
-      const chunk = await this.prisma.client.documentChunk.create({
-        data: {
-          documentId: document.id,
-          chunkContent: mockChunkText,
-          mappedOntologyIds: detectedOntologies,
-        },
-      });
 
       return {
         success: true,
-        message: 'Patient chart securely processed and logged.',
+        message: `Patient chart processed. ${chunks_processed} semantic fragments vectorized successfully.`,
         documentId: document.id,
-        recordsSaved: {
-          title: document.title,
-          chunkId: chunk.id,
-          associatedOntologyCodesCount: detectedOntologies.length,
-        },
+        chunksSavedCount: chunks_processed
       };
+      
     } catch (error) {
       console.error('Core Ingestion Pipeline Crash:', error);
       throw new InternalServerErrorException('Failed to process and save clinical chart record.');
