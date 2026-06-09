@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import List, Dict, Any
 from app.services.processor_service import text_processor
 from app.services.graph_service import graph_service
+from app.services.entity_linker import entity_linker
 
 router = APIRouter(prefix="/rag", tags=["RAG Processing Core"])
 
@@ -40,14 +41,7 @@ def process_document(payload: IngestionRequest):
         
         compiled_payloads = []
         for i, chunk in enumerate(raw_chunks):
-            detected_codes = []
-            
-            if "heart" in chunk.lower() or "infarction" in chunk.lower() or "chest pain" in chunk.lower():
-                detected_codes = graph_service.fetch_medical_lineage("I21")
-            elif "pneumonia" in chunk.lower():
-                detected_codes = graph_service.fetch_medical_lineage("J12-J18")
-            elif "tuberculosis" in chunk.lower() or "tb" in chunk.lower():
-                detected_codes = graph_service.fetch_medical_lineage("A15-A19")
+            detected_codes = entity_linker.extract_and_link(chunk)
 
             compiled_payloads.append(ChunkPayload(
                 chunk_content=chunk,
