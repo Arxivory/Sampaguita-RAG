@@ -78,3 +78,39 @@ def generate_query_vector(payload: SearchRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to vectorize search string: {str(e)}")
+
+class ContextSummaryRequest(BaseModel):
+    query: str
+    retrieved_chunks: List[str]
+    metadata_codes: List[str]
+
+@router.post("/generate-context-prompt")
+def generate_context_prompt(payload: ContextSummaryRequest):
+    """
+    Assembles a clinical context block, augmenting the user's query with 
+    retrieved chart fragments and verified graph taxonomy codes.
+    """
+    if not payload.retrieved_chunks:
+        raise HTTPException(status_code=400, detail="No historical chart chunks provided for context generation.")
+
+    compiled_context = "\n\n".join(
+        [f"[Fragment #{i+1}]: {chunk}" for i, chunk in enumerate(payload.retrieved_chunks)]
+    )
+
+    taxonomy_string = ", ".join(payload.metadata_codes) if payload.metadata_codes else "None Detected"
+
+    system_prompt = (
+        "You are an advanced medical analysis AI assisting an epidemiologist and Municipal Health Officer.\n"
+        "Your objective is to answer clinical inquiries using ONLY the verified historical chart fragments "
+        "and diagnostic taxonomies provided below. Do not extrapolate, hallucinate, or assume details.\n"
+        "If the provided context does not contain enough evidence to answer the query, state explicitly that "
+        "historical clinical logs are insufficient.\n\n"
+        f"Verified ICD-10 Lineage Context: {taxonomy_string}\n"
+        f"Extracted Narrative Context:\n{compiled_context}"
+    )
+
+    return {
+        "target_query": payload.query,
+        "system_prompt": system_prompt,
+        "user_prompt": f"Based on the clinical histories provided above, please answer this request: {payload.query}"
+    }
