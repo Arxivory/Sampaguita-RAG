@@ -122,6 +122,36 @@ export class DocumentsService {
     }
   }
 
+  async analyzeClinicalContext(query: string, limit: number = 3) {
+    try {
+      const searchResults = await this.semanticSearch(query, limit);
+      
+      const textChunks = searchResults.matches.map(m => m.content);
+      const uniqueOntologyCodes = Array.from(
+        new Set(searchResults.matches.flatMap(m => m.ontologyCodes))
+      );
+
+      const promptEngineResponse = await axios.post(
+        `${this.ragEngineUrl}/rag/generate-context-prompt`,
+        {
+          query: query,
+          retrieved_chunks: textChunks,
+          metadata_codes: uniqueOntologyCodes
+        }
+      );
+
+      return {
+        query: query,
+        sourceDocumentsAnalyzed: Array.from(new Set(searchResults.matches.map(m => m.documentId))),
+        fragmentsMatchedCount: searchResults.resultsCount,
+        aiPromptStructure: promptEngineResponse.data
+      };
+    } catch (error) {
+      console.error('End-to-End Analysis Pipeline Crash:', error.message);
+      throw new InternalServerErrorException('Failed to process and compile structured clinical inference data.');
+    }
+  }
+
   async findAll() {
     return await this.prisma.client.document.findMany({
       orderBy: { createdAt: 'desc' },

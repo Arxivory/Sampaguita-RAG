@@ -58,6 +58,19 @@ export class DocumentsController {
     return await this.documentsService.semanticSearch(query, parsedLimit);
   }
 
+  @Get('analyze')
+  async analyzeInquiry(
+    @Query('q') query: string,
+    @Query('limit') limit?: number
+  ) {
+    if (!query) {
+      throw new BadRequestException('An analysis lookup inquiry query parameter "q" is required.');
+    }
+    
+    const parsedLimit = limit ? Number(limit) : 3;
+    return await this.documentsService.analyzeClinicalContext(query, parsedLimit);
+  }
+
   @Get()
   async getAllDocuments() {
     return await this.documentsService.findAll();
