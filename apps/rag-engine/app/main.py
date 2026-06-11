@@ -2,12 +2,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import os
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
+
+dotenv_path = find_dotenv('.env')
+if dotenv_path:
+    load_dotenv(dotenv_path=dotenv_path)
+else:
+    load_dotenv()
+
 from contextlib import asynccontextmanager
 from .services.graph_service import graph_service
 from .routers import ontology, seed, rag
-
-load_dotenv()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

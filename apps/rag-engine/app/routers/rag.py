@@ -4,6 +4,7 @@ from typing import List, Dict, Any
 from app.services.processor_service import text_processor
 from app.services.graph_service import graph_service
 from app.services.entity_linker import entity_linker
+from app.services.llm_service import clinical_llm
 
 router = APIRouter(prefix="/rag", tags=["RAG Processing Core"])
 
@@ -20,6 +21,11 @@ class ChunkPayload(BaseModel):
 class IngestionResponse(BaseModel):
     chunks_processed: int
     payloads: List[ChunkPayload]
+
+class InferenceExecutionRequest(BaseModel):
+    query: str
+    retrieved_chunks: List[str]
+    metadata_codes: List[str]
 
 @router.post("/process-document", response_model=IngestionResponse)
 def process_document(payload: IngestionRequest):
@@ -113,4 +119,42 @@ def generate_context_prompt(payload: ContextSummaryRequest):
         "target_query": payload.query,
         "system_prompt": system_prompt,
         "user_prompt": f"Based on the clinical histories provided above, please answer this request: {payload.query}"
+    }
+
+@router.post("/execute-inference")
+def execute_rag_inference(payload: InferenceExecutionRequest):
+    """
+    Assembles clinical context parameters and executes live LLM generation 
+    via Gemini to return a fully synthesis-grounded diagnostic summary.
+    """
+    if not payload.retrieved_chunks:
+        raise HTTPException(status_code=400, detail="No historical chart chunks provided.")
+
+    compiled_context = "\n\n".join(
+        [f"[Fragment #{i+1}]: {chunk}" for i, chunk in enumerate(payload.retrieved_chunks)]
+    )
+    taxonomy_string = ", ".join(payload.metadata_codes) if payload.metadata_codes else "None Detected"
+
+    system_prompt = (
+        "You are an advanced medical analysis AI assisting an epidemiologist and Municipal Health Officer.\n"
+        "Your objective is to answer clinical inquiries using ONLY the verified historical chart fragments "
+        "and diagnostic taxonomies provided below. Do not extrapolate, hallucinate, or assume details.\n"
+        "Maintain a highly objective, professional clinical tone. Cite your source fragments where relevant.\n"
+        "If the provided context does not contain enough evidence to answer the query, state explicitly that "
+        "historical clinical logs are insufficient.\n\n"
+        f"Verified ICD-10 Lineage Context: {taxonomy_string}\n"
+        f"Extracted Narrative Context:\n{compiled_context}"
+    )
+
+    user_prompt = f"Based on the clinical histories provided above, please answer this request: {payload.query}"
+
+    generated_answer = clinical_llm.execute_grounded_generation(
+        system_prompt=system_prompt,
+        user_prompt=user_prompt
+    )
+
+    return {
+        "query": payload.query,
+        "taxonomy_codes_used": payload.metadata_codes,
+        "answer": generated_answer
     }

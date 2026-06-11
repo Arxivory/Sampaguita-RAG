@@ -131,8 +131,8 @@ export class DocumentsService {
         new Set(searchResults.matches.flatMap(m => m.ontologyCodes))
       );
 
-      const promptEngineResponse = await axios.post(
-        `${this.ragEngineUrl}/rag/generate-context-prompt`,
+      const inferenceResponse = await axios.post(
+        `${this.ragEngineUrl}/rag/execute-inference`,
         {
           query: query,
           retrieved_chunks: textChunks,
@@ -144,7 +144,7 @@ export class DocumentsService {
         query: query,
         sourceDocumentsAnalyzed: Array.from(new Set(searchResults.matches.map(m => m.documentId))),
         fragmentsMatchedCount: searchResults.resultsCount,
-        aiPromptStructure: promptEngineResponse.data
+        aiAnswer: inferenceResponse.data.answer
       };
     } catch (error) {
       console.error('End-to-End Analysis Pipeline Crash:', error.message);
