@@ -98,10 +98,10 @@ export class DocumentsService {
           WHERE embedding IS NOT NULL
         )
         SELECT * FROM calculated_matches
-        WHERE "similarityScore" >= ${threshold}
+        WHERE "similarityScore" >= CAST($1 AS double precision)
         ORDER BY ("similarityScore") DESC
-        LIMIT ${limit}
-      `, limit);
+        LIMIT $2
+      `, threshold, limit);
 
       return {
         query,
@@ -129,6 +129,16 @@ export class DocumentsService {
   async analyzeClinicalContext(query: string, limit: number = 3, threshold: number = 0.55) {
     try {
       const searchResults = await this.semanticSearch(query, limit, threshold);
+
+      if (searchResults.resultsCount === 0) {
+        return {
+          query: query,
+          sourceDocumentsAnalyzed: [],
+          fragmentsMatchedCount: 0,
+          aiAnswer: "No historical patient chart records match your clinical query parameters with sufficient confidence thresholds."
+        };
+      }
+
       const textChunks = searchResults.matches.map(m => m.content);
       const uniqueOntologyCodes = Array.from(
         new Set(searchResults.matches.flatMap(m => m.ontologyCodes))

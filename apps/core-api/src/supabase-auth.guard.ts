@@ -1,18 +1,21 @@
-import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as jwt from 'jsonwebtoken';
 
 @Injectable()
 export class SupabaseAuthGuard implements CanActivate {
-  private readonly jwtSecret: string;
+  private sessionCache = new Map<string, { user: { id: string; email: string; role?: string }; expiresAt: number }>();
+  private readonly supabaseUrl: string;
+  private readonly supabaseAnonKey: string;
 
   constructor(private readonly configService: ConfigService) {
-    this.jwtSecret = this.configService.get<string>('SUPABASE_JWT_SECRET') || '';
-    if (!this.jwtSecret) {
-      console.warn('[Security Warning] SUPABASE_JWT_SECRET is unassigned inside your configuration setup.');
+    this.supabaseUrl = this.configService.get<string>('SUPABASE_URL') || '';
+    this.supabaseAnonKey = this.configService.get<string>('SUPABASE_ANON_KEY') || '';
+
+    if (!this.supabaseUrl || !this.supabaseAnonKey) {
+      console.error('[Configuration Error] Core API is missing SUPABASE_URL or SUPABASE_ANON_KEY variables.');
     }
   }
-
+  
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
     const authHeader = request.headers.authorization;
@@ -23,18 +26,44 @@ export class SupabaseAuthGuard implements CanActivate {
 
     const token = authHeader.split(' ')[1];
 
+    const cachedSession = this.sessionCache.get(token);
+    if (cachedSession && Date.now() < cachedSession.expiresAt) {
+      request.user = cachedSession.user;
+      return true;
+    }
+
     try {
-      const decodedPayload = jwt.verify(token, this.jwtSecret) as any;
+      const response = await fetch(`${this.supabaseUrl}/auth/v1/user`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'ApiKey': this.supabaseAnonKey,
+          'X-Client-IP': request.ip || '',
+          'User-Agent': request.headers['user-agent'] || ''
+        },
+      });
+
+      if (!response.ok) {
+        throw new UnauthorizedException('Invalid or expired remote user security session context.');
+      }
+
+      const supabaseUser = await response.json();
       
       request.user = {
-        id: decodedPayload.sub,
-        email: decodedPayload.email,
-        role: decodedPayload.role,
+        id: supabaseUser.id,
+        email: supabaseUser.email,
+        role: supabaseUser.role || 'user',
       };
+
+      this.sessionCache.set(token, {
+        user: request.user,
+        expiresAt: Date.now() + 120000,
+      });
 
       return true;
     } catch (error) {
-      throw new UnauthorizedException('Authentication token signature verification failed or token expired.');
+      console.error('[Remote Auth Sync Error]:', error.message);
+      throw new UnauthorizedException('Remote token signature validation failed or identity server unreachable.');
     }
   }
 }

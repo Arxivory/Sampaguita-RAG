@@ -15,7 +15,12 @@ class Neo4jGraphService:
             raise ValueError("Neo4j connection details are not fully set in environment variables.")
         
         try:
-            self.driver = GraphDatabase.driver(self.uri, auth=(self.user, self.password))
+            self.driver = GraphDatabase.driver(self.uri, 
+                                               auth=(self.user, self.password),
+                                               max_connection_lifetime=30 * 60,
+                                                max_connection_pool_size=50,
+                                                connection_timeout=30.0
+                                               )
             self.driver.verify_connectivity()
             print("Successfully connected to Neo4j database.")
         except Exception as e:
