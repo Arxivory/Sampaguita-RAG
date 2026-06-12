@@ -16,7 +16,7 @@ export const AuthenticatedUser = createParamDecorator(
 );
 
 @Controller('documents')
-//@UseGuards(SupabaseAuthGuard)
+@UseGuards(SupabaseAuthGuard)
 export class DocumentsController {
   constructor(private readonly documentsService: DocumentsService) {}
 
