@@ -16,7 +16,7 @@ export const AuthenticatedUser = createParamDecorator(
 );
 
 @Controller('documents')
-@UseGuards(SupabaseAuthGuard)
+//@UseGuards(SupabaseAuthGuard)
 export class DocumentsController {
   constructor(private readonly documentsService: DocumentsService) {}
 
@@ -49,26 +49,30 @@ export class DocumentsController {
   @Get('search')
   async searchPatientCharts(
     @Query('q') query: string,
-    @Query('limit') limit?: number
+    @Query('limit') limit?: number,
+    @Query('threshold') threshold?: number
   ) {
     if (!query) 
       throw new BadRequestException('Search query parameter "q" is required.');
 
     const parsedLimit = limit ? Number(limit) : 3;
-    return await this.documentsService.semanticSearch(query, parsedLimit);
+    const parsedThreshold = threshold ? Number(threshold) : 0.55;
+    return await this.documentsService.semanticSearch(query, parsedLimit, parsedThreshold);
   }
 
   @Get('analyze')
   async analyzeInquiry(
     @Query('q') query: string,
-    @Query('limit') limit?: number
+    @Query('limit') limit?: number,
+    @Query('threshold') threshold?: number
   ) {
     if (!query) {
       throw new BadRequestException('An analysis lookup inquiry query parameter "q" is required.');
     }
     
     const parsedLimit = limit ? Number(limit) : 3;
-    return await this.documentsService.analyzeClinicalContext(query, parsedLimit);
+    const parsedThreshold = threshold ? Number(threshold) : 0.55;
+    return await this.documentsService.analyzeClinicalContext(query, parsedLimit, parsedThreshold);
   }
 
   @Get()

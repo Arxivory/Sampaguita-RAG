@@ -76,7 +76,7 @@ export class DocumentsService {
     }
   }
 
-  async semanticSearch(query: string, limit: number = 3) {
+  async semanticSearch(query: string, limit: number = 3, threshold: number = 0.55) {
     try {
       const vectorResponse = await axios.post(`${this.ragEngineUrl}/rag/vector-search-proxy`, {
         query,
@@ -87,15 +87,19 @@ export class DocumentsService {
       const vectorString = `[${queryEmbedding.join(',')}]`;
 
       const matchingChunks = await this.prisma.client.$queryRawUnsafe<any[]>(`
-        SELECT
-          id,
-          document_id as "documentId",
-          chunk_content as "chunkContent",
-          mapped_ontology_ids as "mappedOntologyIds",
-          1 - (embedding <=> '${vectorString}'::vector) AS "similarityScore"
-        FROM document_chunks
-        WHERE embedding IS NOT NULL
-        ORDER BY embedding <=> '${vectorString}'::vector ASC
+        WITH calculated_matches AS (
+          SELECT
+            id,
+            document_id as "documentId",
+            chunk_content as "chunkContent",
+            mapped_ontology_ids as "mappedOntologyIds",
+            1 - (embedding <=> '${vectorString}'::vector) AS "similarityScore"
+          FROM document_chunks
+          WHERE embedding IS NOT NULL
+        )
+        SELECT * FROM calculated_matches
+        WHERE "similarityScore" >= ${threshold}
+        ORDER BY ("similarityScore") DESC
         LIMIT ${limit}
       `, limit);
 
@@ -122,10 +126,9 @@ export class DocumentsService {
     }
   }
 
-  async analyzeClinicalContext(query: string, limit: number = 3) {
+  async analyzeClinicalContext(query: string, limit: number = 3, threshold: number = 0.55) {
     try {
-      const searchResults = await this.semanticSearch(query, limit);
-      
+      const searchResults = await this.semanticSearch(query, limit, threshold);
       const textChunks = searchResults.matches.map(m => m.content);
       const uniqueOntologyCodes = Array.from(
         new Set(searchResults.matches.flatMap(m => m.ontologyCodes))
