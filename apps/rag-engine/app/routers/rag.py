@@ -158,3 +158,21 @@ def execute_rag_inference(payload: InferenceExecutionRequest):
         "taxonomy_codes_used": payload.metadata_codes,
         "answer": generated_answer
     }
+
+@router.delete("/purge/{document_id}")
+def purge_document_graph_data(document_id: str):
+    """
+    Coordinates lifecycle deletion triggers to clear orphaned clinical graph vectors.
+    """
+    try:
+        purge_summary = graph_service.purge_document_nodes(document_id=document_id)
+        return {
+            "success": True,
+            "message": f"Graph nodes mapped to document {document_id} cleared successfully.",
+            "details": purge_summary
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to execute Neo4j graph dependency cleanup: {str(e)}"
+        )

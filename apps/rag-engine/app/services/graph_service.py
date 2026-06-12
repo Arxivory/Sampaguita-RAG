@@ -49,5 +49,27 @@ class Neo4jGraphService:
             except Exception as e:
                 print(f"Error executing Cypher query: {e}")
                 return [root_code]
+
+    def purge_document_nodes(self, document_id: str) -> dict:
+        """
+        Locates all dynamic extraction nodes tied to a unique document_id,
+        safely detaches their structural relationships, and purges them from the graph.
+        """
+        if not self.driver:
+            raise Exception("Neo4j database driver is uninitialized.")
+
+        query = """
+        MATCH (n {document_id: $document_id})
+        DETACH DELETE n
+        RETURN count(n) as deleted_count
+        """
+        
+        with self.driver.session() as session:
+            result = session.run(query, document_id=document_id)
+            record = result.single()
+            return {
+                "document_id": document_id,
+                "nodes_purged": record["deleted_count"] if record else 0
+            }
             
 graph_service = Neo4jGraphService()

@@ -170,6 +170,16 @@ export class DocumentsService {
 
   async remove(id: string) {
     await this.findOne(id);
-    return await this.prisma.client.document.delete({ where: { id } });
+
+    try {
+      await axios.delete(`${this.ragEngineUrl}/rag/purge/${id}`);
+      console.log(`[Lifecycle Sync] Graph nodes for document ${id} cleared from Neo4j.`);
+    } catch (error) {
+      console.warn(`[Lifecycle Warning] Failed to sync graph deletion to FastAPI for document ${id}:`, error.message);
+    }
+
+    return await this.prisma.client.document.delete({
+      where: { id },
+    });
   }
 }
