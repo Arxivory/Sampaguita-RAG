@@ -70,7 +70,7 @@ function SignupPage() {
           <div>
             <CardTitle className="text-2xl font-semibold tracking-tight">Request Access</CardTitle>
             <CardDescription className="mt-1.5 text-sm text-muted-foreground">
-              Join your Rural Health Unit on SampaguitaRAG
+              Join your Local Health Unit on SampaguitaRAG
             </CardDescription>
           </div>
         </CardHeader>
