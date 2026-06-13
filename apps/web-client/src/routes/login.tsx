@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { api } from "@/lib/api";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
@@ -15,30 +16,45 @@ function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setErrorMsg("");
 
-    // TODO: POST request to backend /auth/login
-    // Example: const response = await axios.post('/api/auth/login', { email, password });
+    try {
+      const response = await api.post("/auth/login", {
+        email: email,
+        password: password,
+      });
 
-    // Mock success delay
-    await new Promise((resolve) => setTimeout(resolve, 800));
-
-    setIsLoading(false);
-    navigate({ to: "/" }); // Route to main dashboard
+      if (response.data && response.data.access_token) {
+        localStorage.setItem(
+          "sampaguita_auth_session", 
+          JSON.stringify(response.data)
+        );
+        
+        navigate({ to: "/" });
+      } else {
+        throw new Error("Invalid session signature returned from authentication gateway.");
+      }
+    } catch (err: any) {
+      console.error("Login failure trace:", err);
+      setErrorMsg(
+        err.response?.data?.message || 
+        "Authentication failed. Please verify your credentials."
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <div className="relative flex min-h-screen items-center justify-center px-4 py-12">
-      {/* Subtle background decoration */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <Heart className="absolute -right-16 -top-16 h-80 w-80 text-primary/[0.04]" strokeWidth={1} />
-        <Stethoscope
-          className="absolute -left-12 bottom-0 h-64 w-64 text-primary/[0.04]"
-          strokeWidth={1}
-        />
+        <Stethoscope className="absolute -left-12 bottom-0 h-64 w-64 text-primary/[0.04]" strokeWidth={1} />
       </div>
 
       <Card className="relative z-10 w-full max-w-md rounded-2xl border border-border/60 bg-card/95 shadow-soft-lg backdrop-blur-sm">
@@ -55,6 +71,12 @@ function LoginPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {errorMsg && (
+              <div className="rounded-xl bg-destructive/10 p-3 text-xs font-medium text-destructive">
+                {errorMsg}
+              </div>
+            )}
+            
             <div className="space-y-2">
               <Label htmlFor="email">Email Address</Label>
               <div className="relative">
