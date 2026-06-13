@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { api } from "@/lib/api";
 
 export const Route = createFileRoute("/signup")({
   component: SignupPage,
@@ -25,33 +26,40 @@ function SignupPage() {
   const [role, setRole] = useState("");
   const [facility, setFacility] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setErrorMsg("");
 
-    // TODO: POST request to backend /auth/signup
-    // Example:
-    // const response = await axios.post('/api/auth/signup', {
-    //   fullName, email, password, role, facility
-    // });
+    try {
+      await api.post("/auth/signup", {
+        email: email,
+        password: password,
+        fullName: fullName,
+        role: role,
+        facility: facility
+      });
 
-    // Mock success delay
-    await new Promise((resolve) => setTimeout(resolve, 800));
-
-    setIsLoading(false);
-    navigate({ to: "/" }); // Route to main dashboard
+      alert("Registration completed successfully! Please sign in with your fresh profile credentials.");
+      navigate({ to: "/login" });
+    } catch (err: any) {
+      console.error("Signup validation crash info:", err);
+      setErrorMsg(
+        err.response?.data?.message || 
+        "Failed to request access. Ensure your parameters match organization policies."
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <div className="relative flex min-h-screen items-center justify-center px-4 py-12">
-      {/* Subtle background decoration */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <Heart className="absolute -right-16 -top-16 h-80 w-80 text-primary/[0.04]" strokeWidth={1} />
-        <Stethoscope
-          className="absolute -left-12 bottom-0 h-64 w-64 text-primary/[0.04]"
-          strokeWidth={1}
-        />
+        <Stethoscope className="absolute -left-12 bottom-0 h-64 w-64 text-primary/[0.04]" strokeWidth={1} />
       </div>
 
       <Card className="relative z-10 w-full max-w-md rounded-2xl border border-border/60 bg-card/95 shadow-soft-lg backdrop-blur-sm">
@@ -68,6 +76,12 @@ function SignupPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {errorMsg && (
+              <div className="rounded-xl bg-destructive/10 p-3 text-xs font-medium text-destructive">
+                {errorMsg}
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="fullName">Full Name</Label>
               <div className="relative">
@@ -137,7 +151,7 @@ function SignupPage() {
                 <Input
                   id="facility"
                   type="text"
-                  placeholder="Pavia Municipal Health Unit"
+                  placeholder="Your Facility..."
                   value={facility}
                   onChange={(e) => setFacility(e.target.value)}
                   className="rounded-xl pl-10"
