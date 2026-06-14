@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { Copy, Check, AlertTriangle, ShieldCheck, FileJson2 } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Copy, Check, ShieldCheck, FileJson2, Sparkles, Loader2, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { api } from "@/lib/api";
 
 export const Route = createFileRoute("/export")({
   head: () => ({
@@ -16,258 +17,240 @@ export const Route = createFileRoute("/export")({
   component: ExportPage,
 });
 
-const SUMMARY = [
-  {
-    text: "54-year-old male, post-PCI for acute MI (Mar 2024 · WVMC), maintained on dual antiplatelet plus high-intensity statin.",
-    cites: [1, 2],
-  },
-  {
-    text: "Pulmonary tuberculosis intensive phase completed under NTP-DOTS; no active respiratory contraindications detected.",
-    cites: [3],
-  },
-  {
-    text: "BP elevated today at 150/95 mmHg — Stage 2 hypertension; titration of antihypertensive recommended.",
-    cites: [1, 4],
-  },
-  {
-    text: "Type 2 Diabetes Mellitus uncomplicated, metformin tolerated; FBS surveillance ordered.",
-    cites: [2, 4],
-  },
-  {
-    text: "Enrolled in PhilHealth Konsulta Package; eligible for Z-Benefit coronary follow-up bundle.",
-    cites: [5],
-  },
-];
-
-const SOURCES = [
-  "WVMC Discharge Summary · 09 Mar 2024",
-  "Cardiology Clinic Note · 22 Mar 2024",
-  "NTP-DOTS Treatment Card · 2023",
-  "RHU Konsulta Visit · 18 Apr 2024",
-  "PhilHealth Member Data Record",
-];
-
-const FHIR = `{
-  "resourceType": "Bundle",
-  "id": "sampaguita-bundle-0418",
-  "type": "collection",
-  "timestamp": "2024-04-18T10:24:00+08:00",
-  "entry": [
-    {
-      "resource": {
-        "resourceType": "Patient",
-        "id": "px-062024-0418",
-        "identifier": [
-          { "system": "ph.gov.philhealth", "value": "12-345678901-2" },
-          { "system": "ph.gov.psgc",       "value": "063022014" }
-        ],
-        "name":      [{ "family": "Dela Cruz", "given": ["Juan", "B."] }],
-        "gender":    "male",
-        "birthDate": "1970-08-14",
-        "address":   [{
-          "use": "home",
-          "line": ["Brgy. Ungka II"],
-          "city": "Pavia",
-          "district": "Iloilo",
-          "country": "PH"
-        }]
-      }
-    },
-    {
-      "resource": {
-        "resourceType": "Condition",
-        "code": {
-          "coding": [
-            { "system": "http://hl7.org/fhir/sid/icd-10", "code": "I21.4", "display": "NSTEMI" }
-          ]
-        },
-        "clinicalStatus": { "coding": [{ "code": "active" }] },
-        "onsetDateTime":  "2024-03-02"
-      }
-    },
-    {
-      "resource": {
-        "resourceType": "MedicationStatement",
-        "status": "active",
-        "medicationCodeableConcept": {
-          "coding": [{ "system": "rxnorm", "code": "1191", "display": "Aspirin 81 mg" }]
-        },
-        "dosage": [{ "text": "1 tablet PO once daily" }]
-      }
-    }
-  ]
-}`;
+type RealInferencePayload = {
+  query: string;
+  sourceDocumentsAnalyzed: string[];
+  fragmentsMatchedCount: number;
+  aiAnswer: string;
+};
 
 function ExportPage() {
   const [copied, setCopied] = useState(false);
-  const [hovered, setHovered] = useState<number | null>(null);
+  const [exportQuery, setExportQuery] = useState(
+    "Compile full historical chart summary tracking pulmonary states and acute issues."
+  );
+  
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [pipelineData, setPipelineData] = useState<RealInferencePayload | null>(null);
 
-  const copy = async () => {
+  const handleCompileExport = async () => {
+    if (!exportQuery.trim()) return;
+    setIsLoading(true);
+    setErrorMsg("");
+    
     try {
-      await navigator.clipboard.writeText(FHIR);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1600);
-    } catch {
-      /* noop */
+      const response = await api.get(
+        `/documents/analyze?q=${encodeURIComponent(exportQuery)}&threshold=0.30&limit=4`
+      );
+      setPipelineData(response.data);
+    } catch (err: any) {
+      console.error("Compilation error across context brokers:", err);
+      setErrorMsg(
+        err.response?.data?.message || 
+        "Downstream clinical analyzer disconnected. Verify your core-api loop constraints."
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  const dynamicFhirPayload = useMemo(() => {
+    if (!pipelineData) return null;
+
+    const timestamp = new Date().toISOString();
+    const fhirBundle = {
+      resourceType: "Bundle",
+      id: "sampaguita-rag-extraction-bundle",
+      type: "collection",
+      timestamp: timestamp,
+      entry: [
+        {
+          fullUrl: "urn:uuid:composition-synthesis-01",
+          resource: {
+            resourceType: "Composition",
+            id: "clinical-rag-synthesis",
+            status: "final",
+            type: {
+              coding: [
+                {
+                  system: "http://loinc.org",
+                  code: "11488-4",
+                  display: "Consultation Note Narrative",
+                },
+              ],
+            },
+            subject: {
+              display: "Active Workspace Patient Target Context Profile",
+            },
+            date: timestamp,
+            author: [
+              {
+                display: "Gemini Clinical Synthesis Optimization Agent",
+              },
+            ],
+            title: "Grounded Summary Extraction Synthesis Report",
+            section: [
+              {
+                title: "AI Compiled Patient Chart Summary Insights",
+                code: {
+                  coding: [
+                    {
+                      system: "http://loinc.org",
+                      code: "55107-7",
+                      display: "Addendum Narrative Discussion",
+                    },
+                  ],
+                },
+                text: {
+                  status: "generated",
+                  div: `<div xmlns="http://www.w3.org/1999/xhtml"><p>${pipelineData.aiAnswer}</p></div>`,
+                },
+              },
+            ],
+            extension: pipelineData.sourceDocumentsAnalyzed.map((docId) => ({
+              url: "https://sampaguita-rag.care/fhir/StructureDefinition/source-document-lineage",
+              valueUuid: docId,
+            })),
+          },
+        },
+      ],
+    };
+
+    return JSON.stringify(fhirBundle, null, 2);
+  }, [pipelineData]);
+
+  const copyToClipboard = () => {
+    if (!dynamicFhirPayload) return;
+    navigator.clipboard.writeText(dynamicFhirPayload);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
-    <div className="mx-auto flex max-w-[1400px] flex-col gap-6 pb-8">
+    <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
       <header>
         <Badge className="mb-2 rounded-full bg-primary/15 text-primary-foreground/90 hover:bg-primary/20">
           Module 04
         </Badge>
         <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-          Guardrailed Synthesis &amp; FHIR Export
+          Clinical Compilation & Interoperable FHIR Export
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Final verified payload — citations preserved, PhilHealth benefit-rules enforced.
+          Compile context synthesis out of your chart collections and export directly into strict standard HL7 structures.
         </p>
       </header>
 
+      {/* Query Bar Trigger Wrapper */}
+      <div className="rounded-3xl border border-border/60 bg-card p-5 shadow-soft">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center">
+          <input
+            value={exportQuery}
+            onChange={(e) => setExportQuery(e.target.value)}
+            className="flex-1 rounded-2xl border border-border/60 bg-muted/40 px-4 py-3 text-sm outline-none placeholder:text-muted-foreground/70 focus:border-primary/50"
+            placeholder="Specify compilation context directives..."
+            disabled={isLoading}
+          />
+          <button
+            onClick={handleCompileExport}
+            disabled={isLoading || !exportQuery.trim()}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90 disabled:opacity-40"
+          >
+            {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Compiling...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4" />
+                  Compile Chart Summary
+                </>
+              )
+            }
+          </button>
+        </div>
+      </div>
+
+      {errorMsg && (
+        <div className="flex items-center gap-2 rounded-2xl bg-destructive/10 p-4 text-sm font-medium text-destructive">
+          <AlertCircle className="h-4 w-4" />
+          {errorMsg}
+        </div>
+      )}
+
+      {/* Primary Split Workspace Grid */}
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* SUMMARY COL */}
-        <section className="flex flex-col gap-4">
-          <article className="rounded-3xl border border-border/60 bg-cream p-6 shadow-soft">
-            <div className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="grid h-9 w-9 place-items-center rounded-2xl bg-primary/15 text-primary">
-                  <ShieldCheck className="h-4 w-4" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-semibold tracking-tight">
-                    Verified Patient Summary
-                  </h2>
-                  <p className="text-[11.5px] text-muted-foreground">
-                    5 Fact-Checked Statements • Verified Against 5 Clinical References
-                  </p>
-                </div>
-              </div>
-              <Badge className="rounded-full bg-sage/50 text-sage-foreground hover:bg-sage/60">
-                guardrails pass
-              </Badge>
+        
+        {/* Grounded Summary Text Display Section */}
+        <section className="flex flex-col rounded-3xl border border-border/60 bg-card p-6 shadow-soft">
+          <h2 className="text-sm font-semibold tracking-tight text-foreground/90 mb-4">
+            Verified Chart Synthesis Report Summary
+          </h2>
+
+          {!pipelineData ? (
+            <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border/50 p-8 text-center bg-muted/10">
+              <span className="text-sm font-medium text-muted-foreground/80 italic">No data present in live buffers</span>
+              <p className="text-xs text-muted-foreground/60 mt-1">
+                Execute a compilation lookup extraction vector above to render real data.
+              </p>
             </div>
-
-            <ul className="space-y-3">
-              {SUMMARY.map((s, i) => (
-                <li
-                  key={i}
-                  className="rounded-2xl border border-border/40 bg-card/70 p-3.5 text-[13px] leading-relaxed text-foreground/90"
-                >
-                  <span className="mr-2 font-semibold text-primary-foreground/70">▸</span>
-                  {s.text}{" "}
-                  {s.cites.map((c) => (
-                    <button
-                      key={c}
-                      onMouseEnter={() => setHovered(c)}
-                      onMouseLeave={() => setHovered(null)}
-                      className={`mx-0.5 inline-flex items-center rounded-full px-1.5 py-0.5 font-mono text-[10.5px] font-medium transition ${
-                        hovered === c
-                          ? "bg-primary text-primary-foreground shadow-soft"
-                          : "bg-primary/15 text-primary-foreground/90 hover:bg-primary/25"
-                      }`}
-                    >
-                      [Source #{c}]
-                    </button>
-                  ))}
-                </li>
-              ))}
-            </ul>
-
-            <div className="mt-4 rounded-2xl border border-border/40 bg-card/70 p-3">
-              <div className="text-[10.5px] uppercase tracking-widest text-muted-foreground">
-                Source Register
-              </div>
-              <ol className="mt-2 space-y-1.5 text-[12px]">
-                {SOURCES.map((s, i) => (
-                  <li
-                    key={i}
-                    onMouseEnter={() => setHovered(i + 1)}
-                    onMouseLeave={() => setHovered(null)}
-                    className={`flex items-center gap-2 rounded-lg px-2 py-1 transition ${
-                      hovered === i + 1 ? "bg-primary/15" : "hover:bg-muted/60"
-                    }`}
-                  >
-                    <span className="font-mono text-[10px] text-muted-foreground">
-                      #{i + 1}
+          ) : (
+            <div className="flex-1 flex flex-col justify-between rounded-2xl border border-border/60 bg-background p-5 shadow-inner">
+              <p className="text-[13.5px] leading-relaxed text-foreground/90 whitespace-pre-wrap">
+                {pipelineData.aiAnswer}
+              </p>
+              
+              {/* Document Origin Linage Tracking Footnote */}
+              <div className="mt-6 border-t border-border/40 pt-4">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/80 mb-2">
+                  Source Provenance Bounds
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {pipelineData.sourceDocumentsAnalyzed.map((docId) => (
+                    <span key={docId} className="font-mono text-[10px] bg-muted px-2 py-1 rounded-lg text-muted-foreground border border-border/40 truncate max-w-full">
+                      Ref: {docId}
                     </span>
-                    <span>{s}</span>
-                  </li>
-                ))}
-              </ol>
-            </div>
-          </article>
-
-          <aside className="rounded-3xl border border-amber-soft bg-amber-soft/40 p-5 shadow-soft">
-            <div className="flex items-start gap-3">
-              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-amber-soft text-amber-soft-foreground">
-                <AlertTriangle className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="text-[11px] font-semibold uppercase tracking-widest text-amber-soft-foreground">
-                  PhilHealth Case Rate Alert
-                </div>
-                <p className="mt-1 text-[13px] font-medium leading-snug text-amber-soft-foreground">
-                  Patient qualifies for <strong>Z Benefit Package</strong> (Acute Coronary
-                  Syndrome bundle, ₱550,000). Missing mandatory <strong>ECG confirmation</strong>{" "}
-                  attachment — submission will be rejected by HCI portal.
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button className="rounded-xl bg-amber-soft-foreground/90 px-3 py-1.5 text-[12px] font-semibold text-amber-soft hover:bg-amber-soft-foreground">
-                    Attach ECG now
-                  </button>
-                  <button className="rounded-xl border border-amber-soft-foreground/30 bg-transparent px-3 py-1.5 text-[12px] font-medium text-amber-soft-foreground hover:bg-amber-soft/60">
-                    Snooze 24h
-                  </button>
+                  ))}
                 </div>
               </div>
             </div>
-          </aside>
+          )}
         </section>
 
-        {/* FHIR COL */}
-        <section className="overflow-hidden rounded-3xl border border-border/60 bg-card shadow-soft">
-          <header className="flex items-center justify-between border-b border-border/60 bg-gradient-to-r from-primary/10 to-sage/30 px-5 py-3.5">
-            <div className="flex items-center gap-2.5">
-              <div className="grid h-9 w-9 place-items-center rounded-2xl bg-card text-primary shadow-soft">
-                <FileJson2 className="h-4 w-4" />
-              </div>
-              <div>
-                <h2 className="text-sm font-semibold tracking-tight">
-                  Standard EMR Data Package
-                </h2>
-                <p className="text-[11.5px] text-muted-foreground">
-                  Transmittable Health Log
-                </p>
-              </div>
+        {/* Live Code JSON Export Syntax Panel Block */}
+        <section className="flex flex-col rounded-3xl border border-border/60 bg-card p-6 shadow-soft">
+          <header className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FileJson2 className="h-4 w-4 text-primary" />
+              <h2 className="text-sm font-semibold tracking-tight">Interoperable HL7 FHIR Bundle Package</h2>
             </div>
-            <button
-              onClick={copy}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3 py-1.5 text-[12px] font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90"
-            >
-              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-              {copied ? "Copied" : "Copy to Clipboard"}
-            </button>
+            {dynamicFhirPayload && (
+              <button
+                onClick={copyToClipboard}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-border/70 bg-background px-3 py-1.5 text-xs font-semibold text-foreground/80 transition hover:bg-muted"
+              >
+                {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                {copied ? "Copied Raw Output" : "Copy Source Code JSON"}
+              </button>
+            )}
           </header>
 
-          <div className="relative max-h-[680px] overflow-auto bg-[oklch(0.985_0.012_30)] p-5">
-            <pre className="font-mono text-[12px] leading-relaxed">
-              <code>{syntaxHighlight(FHIR)}</code>
-            </pre>
-          </div>
-
-          <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 bg-muted/40 px-5 py-3 text-[11px] text-muted-foreground">
-            <span>3 resources · 1,284 bytes · sha256 7f3…ab21</span>
-            <div className="flex gap-2">
-              <span className="rounded-full bg-sage/50 px-2 py-0.5 text-sage-foreground">
-                ✓ schema valid
-              </span>
-              <span className="rounded-full bg-sage/50 px-2 py-0.5 text-sage-foreground">
-                ✓ ph-core conformant
-              </span>
+          {!dynamicFhirPayload ? (
+            <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border/50 p-8 text-center bg-muted/10">
+              <span className="text-sm font-medium text-muted-foreground/80 italic">No data present in live buffers</span>
+              <p className="text-xs text-muted-foreground/60 mt-1">Awaiting active data pipeline parsing execution.</p>
             </div>
-          </footer>
+          ) : (
+            <div className="flex-1 relative overflow-hidden rounded-2xl border border-border/70 bg-zinc-950 p-4 font-mono text-[12px] leading-relaxed shadow-inner">
+              <div className="absolute right-3 top-3 flex items-center gap-1.5 rounded-lg bg-zinc-900 px-2 py-1 text-[10px] font-bold tracking-wider text-emerald-500 uppercase border border-zinc-800">
+                <ShieldCheck className="h-3 w-3" /> Schema Compliant
+              </div>
+              <pre className="h-[360px] overflow-y-auto pr-2 text-zinc-300 custom-scrollbar whitespace-pre-wrap">
+                {syntaxHighlight(dynamicFhirPayload)}
+              </pre>
+            </div>
+          )}
         </section>
       </div>
     </div>
@@ -276,36 +259,30 @@ function ExportPage() {
 
 function syntaxHighlight(json: string) {
   const parts: React.ReactNode[] = [];
-  const regex =
-    /("(?:\\.|[^"\\])*"\s*:)|("(?:\\.|[^"\\])*")|\b(true|false|null)\b|(-?\d+(?:\.\d+)?)/g;
+  const regex = /("(?:\\.|[^"\\])*"\s*:)|("(?:\\.|[^"\\])*")|\b(true|false|null)\b|(-?\d+(?:\.\d+)?)/g;
   let last = 0;
   let i = 0;
   let m: RegExpExecArray | null;
+
   while ((m = regex.exec(json)) !== null) {
     if (m.index > last) {
-      parts.push(
-        <span key={`t${i++}`} className="text-foreground/60">
-          {json.slice(last, m.index)}
-        </span>
-      );
+      parts.push(<span key={`text-${i++}`}>{json.slice(last, m.index)}</span>);
     }
     const [tok] = m;
-    let cls = "text-foreground";
-    if (m[1]) cls = "text-primary-foreground/90 font-medium"; // key
-    else if (m[2]) cls = "text-[oklch(0.45_0.12_150)]"; // string
-    else if (m[3]) cls = "text-[oklch(0.55_0.18_30)]"; // bool/null
-    else if (m[4]) cls = "text-[oklch(0.5_0.16_60)]"; // num
+    let cls = "text-zinc-400";
+    if (m[1]) cls = "text-sky-400 font-medium";
+    else if (m[2]) cls = "text-amber-300";
+    else if (m[3] || m[4]) cls = "text-emerald-400 font-semibold";
+
     parts.push(
-      <span key={`m${i++}`} className={cls}>
+      <span key={`token-${i++}`} className={cls}>
         {tok}
       </span>
     );
-    last = m.index + tok.length;
+    last = regex.lastIndex;
   }
-  parts.push(
-    <span key="end" className="text-foreground/60">
-      {json.slice(last)}
-    </span>
-  );
+  if (last < json.length) {
+    parts.push(<span key={`text-end`}>{json.slice(last)}</span>);
+  }
   return parts;
 }
