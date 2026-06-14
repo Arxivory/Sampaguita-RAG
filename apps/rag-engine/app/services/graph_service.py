@@ -33,6 +33,72 @@ class Neo4jGraphService:
             self.driver.close()
             print("Neo4j connection closed.")
 
+    def get_ontology_topology(self) -> Dict[str, any]:
+        """
+        Executes a Cypher query to retrieve the entire medical ontology graph structure,
+        returning nodes and relationships in a format suitable for visualization or analysis.
+        """
+        if not self.driver:
+            raise RuntimeError("Database driver is not active. Call connect() first.")
+
+        cypher_query = """
+        MATCH (child:MedicalConcept)-[:IS_A]->(parent:MedicalConcept)
+        RETURN
+            child.code AS childCode, child.name AS childLabel,
+            parent.code AS parentCode, parent.name AS parentLabel
+        LIMIT 150
+        """
+
+        with self.driver.session() as session:
+            try:
+                result = session.run(cypher_query)
+                nodes_map = {}
+                edges = []
+
+                nodes_map["ROOT"] = {
+                    "id": "ROOT",
+                    "label": "Clinical Reference Ontology Roots",
+                    "level": 0
+                }
+                
+                for record in result:
+                    c_code = record["childCode"]
+                    c_label = record["childLabel"]
+                    p_code = record["parentCode"]
+                    p_label = record["parentLabel"]
+
+                    if p_code not in nodes_map:
+                        nodes_map[p_code] = {
+                            "id": p_code,
+                            "label": p_label,
+                            "level": 1
+                        }
+
+                        edges.append({
+                            "from": "ROOT",
+                            "to": p_code
+                        })
+
+                    if c_code not in nodes_map:
+                        nodes_map[c_code] = {
+                            "id": c_code,
+                            "label": c_label,
+                            "level": 2
+                        }
+
+                    edges.append({
+                        "from": p_code,
+                        "to": c_code
+                    })
+
+                return {
+                    "nodes": list(nodes_map.values()),
+                    "edges": edges
+                }
+            except Exception as e:
+                print(f"Error executing Cypher query: {e}")
+                return {"nodes": [], "edges": []}
+
     def fetch_medical_lineage(self, root_code: str) -> List[str]:
         """
         Executes a recursive hierarchical traversal to find all children or variations 

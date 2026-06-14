@@ -18,3 +18,15 @@ def get_code_lineage(root_code: str):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/topology")
+def get_ontology_topology():
+    """
+    Provides a high-level overview of the medical ontology graph structure,
+    including node counts and relationship distributions.
+    """
+    try:
+        topology = graph_service.get_ontology_topology()
+        return topology
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

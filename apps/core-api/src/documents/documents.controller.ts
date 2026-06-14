@@ -60,6 +60,11 @@ export class DocumentsController {
     return await this.documentsService.semanticSearch(query, parsedLimit, parsedThreshold);
   }
 
+  @Get('ontology-topology')
+  async getOntologyTopology() {
+    return await this.documentsService.getOntologyTopology();
+  }
+
   @Get('analyze')
   async analyzeInquiry(
     @Query('q') query: string,

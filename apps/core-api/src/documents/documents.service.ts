@@ -76,6 +76,16 @@ export class DocumentsService {
     }
   }
 
+  async getOntologyTopology() {
+    try {
+      const response = await axios.get(`${this.ragEngineUrl}/ontology/topology`);
+      return response.data;
+    } catch (error) {
+      console.error('Ontology Topology Fetch Crash:', error);
+      throw new InternalServerErrorException('Failed to retrieve clinical ontology topology data.');
+    }
+  }
+
   async semanticSearch(query: string, limit: number = 3, threshold: number = 0.55) {
     try {
       const vectorResponse = await axios.post(`${this.ragEngineUrl}/rag/vector-search-proxy`, {
