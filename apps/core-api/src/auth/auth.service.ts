@@ -65,16 +65,12 @@ export class AuthService {
     if (!data.session) throw new UnauthorizedException('Failed to establish a secure user session token context.');
 
     return {
-      success: true,
-      message: 'Authentication session verified.',
-      session: {
-        access_token: data.session.access_token,
-        refresh_token: data.session.refresh_token,
-        expires_in: data.session.expires_in,
-        user: {
-          id: data.user.id,
-          email: data.user.email,
-        }
+      access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
+      expires_in: data.session.expires_in,
+      user: {
+        id: data.user.id,
+        email: data.user.email,
       }
     };
   }
