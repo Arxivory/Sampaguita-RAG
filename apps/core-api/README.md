@@ -1,61 +1,99 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Core API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+The central API server that handles user management, document coordination, and authentication for SampaguitaRAG.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## What This App Does
 
-## Description
+The Core API acts as the gateway between the web client and the RAG processing engine. It manages:
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+- User registration and authentication via Supabase
+- Document uploads and metadata storage
+- Coordination with the RAG engine for document processing
+- User data persistence in the database
+- API endpoints for the frontend to interact with the system
 
-## Project setup
+Think of this as the "traffic controller" that routes requests, stores data, and ensures users can securely access their documents.
+
+## Architecture
+
+This app uses NestJS to organize code into modules:
+
+- **auth** - Handles user login, registration, and JWT tokens
+- **users** - Manages user profiles and data
+- **documents** - Processes uploaded clinical documents and stores them
+
+Each module has controllers (API endpoints) and services (business logic).
+
+## Setup
 
 ```bash
-$ pnpm install
+# Install dependencies
+pnpm install
+
+# Set up environment variables
+# Create a .env file with your Supabase credentials and RAG_ENGINE_URL
 ```
 
-## Compile and run the project
+## Running
 
 ```bash
-# development
-$ pnpm run start
+# Development mode (with auto-reload)
+pnpm run dev
 
-# watch mode
-$ pnpm run start:dev
+# Production build
+pnpm run build
 
-# production mode
-$ pnpm run start:prod
+# Run production build
+node dist/main
 ```
 
-## Run tests
+## API Endpoints
 
-```bash
-# unit tests
-$ pnpm run test
+```
+POST /auth/register          Register a new user
+POST /auth/login             User login
+GET  /users/profile          Get current user profile
+POST /documents/upload       Upload a clinical document
+GET  /documents              List user's documents
+GET  /documents/:id          Get specific document details
+```
+
+## How It Works
+
+1. User signs up or logs in via the web client
+2. Auth module validates credentials with Supabase
+3. User uploads a clinical document
+4. Documents service receives the upload
+5. Document is sent to RAG engine for processing
+6. Processed data is stored in the database
+7. User can query and view results through the frontend
+
+## Key Dependencies
+
+- **@nestjs/core** - NestJS framework
+- **@supabase/supabase-js** - Authentication and database
+- **axios** - HTTP client for calling RAG engine
+- **@sampaguita/database** - Shared database client with Prisma
+
+## Database Schema
+
+Documents are stored with:
+
+- Title and raw text content
+- Vector embeddings generated by RAG engine
+- Ontology mappings and entity links
+- Upload timestamp and owner (user ID)
+  $ pnpm run test
 
 # e2e tests
+
 $ pnpm run test:e2e
 
 # test coverage
+
 $ pnpm run test:cov
-```
+
+````
 
 ## Deployment
 
@@ -66,7 +104,7 @@ If you are looking for a cloud-based platform to deploy your NestJS application,
 ```bash
 $ pnpm install -g @nestjs/mau
 $ mau deploy
-```
+````
 
 With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
 

@@ -1,32 +1,187 @@
-# Turborepo starter
+# 🌸 SampaguitaRAG
 
-This Turborepo starter is maintained by the Turborepo core team.
+A hierarchical ontological Retrieval-Augmented Generation (RAG) system designed to solve semantic interoperability challenges in fragmented clinical records. This system bridges unstructured medical narratives to standardized ontological structures, enabling accurate clinical decision support without hallucination risks.
 
-## Using this example
+## Problem Statement
 
-Run the following command:
+Healthcare facilities in the Philippines struggle with semantic interoperability across incompatible Electronic Health Record (EHR) systems. Clinical documentation relies on non-standardized narrative text, regional colloquialisms, and ambiguous abbreviations. Standard text-based and vector RAG systems fail to capture formal biological relationships, leading to:
 
-```sh
-npx create-turbo@latest
+- Missed critical patient data across platform boundaries
+- Dangerous hallucinations in AI-generated clinical summaries
+- Inability to map conversational clinical notes to standardized medical terminologies
+- Fragmented patient histories in low-resource environments
+
+## Solution Overview
+
+SampaguitaRAG introduces a graph-aware retrieval pipeline that forces language models to operate within an explicit medical ontology framework (DAG structure). Instead of treating clinical documents as flat text, the system:
+
+1. Extracts clinical entities from unstructured narratives
+2. Maps entities to standardized medical codes (SNOMED-CT, ICD-10)
+3. Traverses hierarchical relationships to expand search scope
+4. Constrains LLM synthesis to verified ontological paths
+5. Exports structured, interoperable clinical data
+
+## Features
+
+- **Document Processing Pipeline**: Ingests unstructured clinical narratives, chunks text, and generates vector embeddings
+- **Entity Linking**: Extracts medical entities and links them to ontological identifiers
+- **Dual-Engine Search**: Query clinical records using standard vector search or hierarchical ontological search
+- **Ontology Graph Viewer**: Interactive visualization of medical concept hierarchies and relationships
+- **Clinical LLM Synthesis**: Generates guardrailed clinical summaries constrained by ontological boundaries
+- **FHIR Export**: Exports synthesized records in interoperable HL7 FHIR R4 format
+- **User Authentication**: Secure access via Supabase authentication
+- **Neo4j Graph Database**: Persistent storage of medical ontology relationships
+
+## Tech Stack
+
+### Backend
+
+- **FastAPI** (Python): Core RAG engine for document processing and ontological retrieval
+- **NestJS** (TypeScript): API layer for user management, authentication, and document coordination
+- **Neo4j**: Graph database for medical ontology storage and traversal
+- **Supabase**: Authentication and user management service
+
+### Frontend
+
+- **React** (TypeScript): Core UI framework
+- **Vite**: Build tool and development server
+- **TanStack Router**: Client-side routing
+- **Tailwind CSS**: Styling framework
+
+### Infrastructure
+
+- **Turbo**: Monorepo build orchestration
+- **pnpm**: Package manager
+- **Prisma**: Database ORM for relational data
+
+## Project Structure
+
+```
+sampaguita-rag/
+├── apps/
+│   ├── core-api/           # NestJS API server
+│   ├── rag-engine/         # FastAPI RAG processing engine
+│   └── web-client/         # React SPA dashboard
+└── packages/
+    ├── database/           # Prisma schema and ORM
+    ├── eslint-config/      # Shared ESLint rules
+    ├── typescript-config/  # Shared TypeScript configs
+    └── ui/                 # Shared UI component library
 ```
 
-## What's inside?
+## Installation
 
-This Turborepo includes the following packages/apps:
+### Prerequisites
 
-### Apps and Packages
+- Node.js >= 18
+- Python >= 3.10
+- pnpm >= 9.0.0
+- Neo4j database running
+- Supabase project configured
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
+### Setup Steps
 
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
+1. Clone the repository:
 
-### Utilities
+```bash
+git clone https://github.com/your-org/sampaguita-rag.git
+cd sampaguita-rag
+```
 
-This Turborepo has some additional tools already setup for you:
+2. Install dependencies:
+
+```bash
+pnpm install
+```
+
+3. Configure environment variables:
+   - Create `.env` file in the root directory
+   - Set up Neo4j connection string
+   - Configure Supabase credentials
+   - Set API endpoints
+
+4. Set up Python environment for RAG engine:
+
+```bash
+cd apps/rag-engine
+python -m venv venv
+source venv/Scripts/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+5. Initialize the database:
+
+```bash
+pnpm run build
+```
+
+## Usage
+
+### Development
+
+Start all services in development mode:
+
+```bash
+pnpm run dev
+```
+
+Or start individual services:
+
+```bash
+# Start NestJS API
+pnpm run dev:api
+
+# Start FastAPI RAG engine
+pnpm run dev:engine
+
+# Start React client
+pnpm run dev:client
+```
+
+### API Endpoints
+
+**RAG Engine (FastAPI, port 8000)**
+
+- `POST /rag/process-document` - Ingest and process clinical document
+- `POST /rag/query` - Execute RAG query with hierarchical retrieval
+- `GET /ontology/nodes` - Retrieve ontology graph structure
+- `GET /health` - Health check
+
+**Core API (NestJS, port 3000)**
+
+- `POST /auth/register` - User registration
+- `POST /auth/login` - User authentication
+- `GET /documents` - List user documents
+- `POST /documents/upload` - Upload clinical document
+
+### Frontend Routes
+
+- `/` - Dashboard and home view
+- `/search` - Clinical search workbench with dual-engine retrieval
+- `/ontology` - Interactive ontology graph visualization
+- `/export` - FHIR export and clinical synthesis view
+- `/login` - User authentication
+- `/signup` - Account creation
+
+## Development Status
+
+**Status: Still in Development**
+
+This project is actively under development. Core functionality is operational, including document ingestion, graph-based retrieval, and clinical synthesis. Ongoing work includes refinement of search algorithms, enhanced visualization capabilities, and deployment optimization for resource-constrained environments.
+
+Contributions and feedback are welcome. Please refer to the issue tracker for current development priorities.
+
+## Documentation
+
+Refer to individual README files in each app directory:
+
+- [Core API Documentation](./apps/core-api/README.md)
+- [RAG Engine Documentation](./apps/rag-engine/README.md)
+- [Web Client Documentation](./apps/web-client/README.md)
+
+## License
+
+This project is licensed under the UNLICENSED designation. For licensing inquiries, please contact the project maintainers.
 
 - [TypeScript](https://www.typescriptlang.org/) for static type checking
 - [ESLint](https://eslint.org/) for code linting
