@@ -1,5 +1,7 @@
 # 🌸 SampaguitaRAG
 
+<img src="./assets/Sampaguita-Preview.png" alt="System Preview" />
+
 A hierarchical ontological Retrieval-Augmented Generation (RAG) system designed to solve semantic interoperability challenges in fragmented clinical records. This system bridges unstructured medical narratives to standardized ontological structures, enabling accurate clinical decision support without hallucination risks.
 
 ## Problem Statement
