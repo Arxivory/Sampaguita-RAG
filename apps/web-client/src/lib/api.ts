@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { createClient } from '@supabase/supabase-js';
 
 export const api = axios.create({
     baseURL: 'http://localhost:3000',
@@ -20,4 +21,9 @@ api.interceptors.request.use((config) => {
         }
     }
     return config;
-})
+});
+
+const supabaseUrl = import.meta.env.VITE_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY;
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);

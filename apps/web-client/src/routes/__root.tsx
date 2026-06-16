@@ -7,6 +7,7 @@ import {
   useRouterState,
   HeadContent,
   Scripts,
+  redirect
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
@@ -17,6 +18,9 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { TopHeader } from "@/components/TopHeader";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
+import { supabase } from "@/lib/api";
+
+const PUBLIC_ROUTES = ["/login", "/signup"];
 
 function NotFoundComponent() {
   return (
@@ -79,6 +83,25 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
+  beforeLoad: async ({ location }) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const isPublicPath = PUBLIC_ROUTES.includes(location.pathname);
+
+    if (!session && !isPublicPath) {
+      throw redirect({
+        to: "/login",
+        search: {
+          redirect: location.href,
+        },
+      });
+    }
+
+    if (session && isPublicPath) {
+      throw redirect({ to: "/" });
+    }
+    
+    return { session };
+  },
   head: () => ({
     meta: [
       { charSet: "utf-8" },
