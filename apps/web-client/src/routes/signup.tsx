@@ -89,7 +89,7 @@ function SignupPage() {
                 <Input
                   id="fullName"
                   type="text"
-                  placeholder="Dr. Althea Santos"
+                  placeholder="Your Full Name"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   className="rounded-xl pl-10"
@@ -105,7 +105,7 @@ function SignupPage() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="dr.santos@pavia.gov.ph"
+                  placeholder="Your Email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="rounded-xl pl-10"
@@ -151,7 +151,7 @@ function SignupPage() {
                 <Input
                   id="facility"
                   type="text"
-                  placeholder="Your Facility..."
+                  placeholder="Your Facility"
                   value={facility}
                   onChange={(e) => setFacility(e.target.value)}
                   className="rounded-xl pl-10"
