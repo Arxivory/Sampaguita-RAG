@@ -92,7 +92,7 @@ function LoginPage() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="dr.santos@pavia.gov.ph"
+                  placeholder="Your Email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="rounded-xl pl-10"
