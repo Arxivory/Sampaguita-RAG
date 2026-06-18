@@ -41,211 +41,240 @@ function OntologyPage() {
   const [nodes, setNodes] = useState<RenderNode[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [errorMsg, setErrorMsg] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const streamGraphTopology = async () => {
+    async function fetchTopology() {
       try {
         setIsLoading(true);
-        setErrorMsg("");
-        
         const response = await api.get("/documents/ontology-topology");
-        
-        const rawNodes: BackendNode[] = response.data.nodes || [];
-        const rawEdges: Edge[] = response.data.edges || [];
+        const data = response.data;
 
-        const levelGroupCount: Record<number, number> = {};
-        rawNodes.forEach((node) => {
-          levelGroupCount[node.level] = (levelGroupCount[node.level] || 0) + 1;
+        const rawNodes: BackendNode[] = data.nodes || [];
+        const rawEdges: Edge[] = data.edges || [];
+
+        const levelCounts: { [key: number]: number } = {};
+        rawNodes.forEach((n) => {
+          levelCounts[n.level] = (levelCounts[n.level] || 0) + 1;
         });
 
-        const currentPositionTracker: Record<number, number> = {};
+        const currentLevelIndices: { [key: number]: number } = {};
+        const canvasWidth = 1000;
+        const rowHeight = 120;
+        const startY = 60;
 
-        const calculatedRenderNodes: RenderNode[] = rawNodes.map((node) => {
-          const totalNodesAtTier = levelGroupCount[node.level];
-          const currentIndex = currentPositionTracker[node.level] || 0;
-          currentPositionTracker[node.level] = currentIndex + 1;
+        const positionedNodes: RenderNode[] = rawNodes.map((node) => {
+          const totalInLevel = levelCounts[node.level];
+          const currentIndex = currentLevelIndices[node.level] || 0;
+          currentLevelIndices[node.level] = currentIndex + 1;
 
-          const canvasWidth = 1000;
-          const partitionSegment = canvasWidth / (totalNodesAtTier + 1);
-          
-          const x = partitionSegment * (currentIndex + 1);
-          const y = 70 + node.level * 150;
+          const y = startY + node.level * rowHeight;
+          const segmentWidth = canvasWidth / (totalInLevel + 1);
+          const x = segmentWidth * (currentIndex + 1);
 
-          return {
-            ...node,
-            x,
-            y,
-          };
+          return { ...node, x, y };
         });
 
-        setNodes(calculatedRenderNodes);
+        setNodes(positionedNodes);
         setEdges(rawEdges);
-
-        if (calculatedRenderNodes.length > 0) {
-          const defaultNode = calculatedRenderNodes.find(n => n.id === "ROOT") || calculatedRenderNodes[0];
-          setSelectedNodeId(defaultNode.id);
+        
+        if (positionedNodes.length > 0 && !positionedNodes.some(n => n.id === "ROOT")) {
+          setSelectedNodeId(positionedNodes[0].id);
         }
       } catch (err: any) {
-        console.error("Failed to stream clinical graph layers:", err);
-        setErrorMsg("Downstream ontology pipeline disconnected. Verify your FastAPI and Neo4j endpoints.");
+        console.error("Failed to load clinical topology:", err);
+        setError("Could not retrieve ontological mapping structures from database graph.");
       } finally {
         setIsLoading(false);
       }
-    };
-
-    streamGraphTopology();
+    }
+    fetchTopology();
   }, []);
 
-  const nodeMap = useMemo(() => {
-    const map: Record<string, RenderNode> = {};
-    nodes.forEach((n) => {
-      map[n.id] = n;
-    });
-    return map;
-  }, [nodes]);
+  const nodeMap = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
 
-  const selectedNode = selectedNodeId ? nodeMap[selectedNodeId] : null;
-
-  const activePaths = useMemo(() => {
-    if (!selectedNodeId) return [];
-    return edges.filter((e) => e.from === selectedNodeId || e.to === selectedNodeId);
-  }, [selectedNodeId, edges]);
+  const selectedNode = useMemo(() => {
+    if (!selectedNodeId) return null;
+    return nodeMap.get(selectedNodeId) || null;
+  }, [selectedNodeId, nodeMap]);
 
   if (isLoading) {
     return (
-      <div className="flex min-h-[450px] flex-col items-center justify-center gap-2.5 text-sm text-muted-foreground">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-        <span>Traversing structural node hierarchies from Neo4j AuraDB instance...</span>
+      <div className="flex h-[50vh] flex-col items-center justify-center gap-3">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground animate-pulse">Assembling clinical relationship hierarchies...</p>
       </div>
     );
   }
 
-  if (errorMsg) {
+  if (error) {
     return (
-      <div className="flex items-center gap-2 rounded-2xl bg-destructive/10 p-4 text-sm font-medium text-destructive mx-auto max-w-[1400px]">
-        <AlertCircle className="h-4 w-4" />
-        {errorMsg}
+      <div className="mx-auto max-w-md rounded-2xl border border-destructive/20 bg-destructive/5 p-6 text-center">
+        <AlertCircle className="mx-auto h-8 w-8 text-destructive" />
+        <h3 className="mt-3 text-sm font-semibold text-foreground">Topology Resolution Failure</h3>
+        <p className="mt-1 text-xs text-muted-foreground">{error}</p>
       </div>
     );
   }
 
   return (
     <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
-      <header>
-        <Badge className="mb-2 rounded-full bg-primary/15 text-primary-foreground/90 hover:bg-primary/20">
-          Module 03
-        </Badge>
-        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-          Disease Lineage Visualizer
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Interactive relational map showing real parent/child linkages extracted from your ontology schema.
-        </p>
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <Badge className="mb-2 rounded-full bg-primary/15 text-primary-foreground/90 hover:bg-primary/20">
+            Clinical Core Engine
+          </Badge>
+          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
+            Interactive Ontology Topology
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Visual medical history tree mapping the relationships of diagnosed conditions for this patient.
+          </p>
+        </div>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-        {/* Interactive SVG Rendering Graph Panel */}
-        <section className="relative overflow-hidden rounded-3xl border border-border/60 bg-card shadow-soft">
-          <div className="absolute left-4 top-4 z-10 flex items-center gap-1.5 rounded-2xl border border-border/60 bg-card p-1.5 shadow-soft">
-            <CtrlBtn onClick={() => setZoom((z) => Math.min(2, z + 0.1))}><ZoomIn className="h-4 w-4" /></CtrlBtn>
-            <CtrlBtn onClick={() => setZoom((z) => Math.max(0.5, z - 0.1))}><ZoomOut className="h-4 w-4" /></CtrlBtn>
-            <CtrlBtn onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}><Maximize2 className="h-3.5 w-3.5" /></CtrlBtn>
-          </div>
+      <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
+        <div className="relative h-[560px] overflow-hidden rounded-3xl border border-border/60 bg-gradient-to-br from-card via-background to-primary/8 shadow-soft">
+          
+          <div
+            className="absolute inset-0 opacity-40"
+            style={{
+              backgroundImage: "radial-gradient(oklch(0.74 0.12 12 / 0.18) 1px, transparent 1px)",
+              backgroundSize: "24px 24px",
+            }}
+          />
 
-          <div className="absolute right-4 top-4 z-10 flex flex-col gap-2 rounded-2xl border border-border/60 bg-card p-3 text-[11px] font-medium shadow-soft bg-card/90 backdrop-blur-sm">
-            <div className="flex items-center gap-2"><LegendDot className="bg-primary" /> Root Anchor</div>
-            <div className="flex items-center gap-2"><LegendDot className="bg-emerald-600" /> Category Chapter</div>
-            <div className="flex items-center gap-2"><LegendDot className="bg-amber-500" /> Terminal Sub-Code</div>
-          </div>
-
-          <div className="h-[520px] w-full cursor-grab bg-muted/20 active:cursor-grabbing">
-            <svg
-              className="h-full w-full select-none"
-              viewBox="0 0 1000 520"
-              style={{
-                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-                transformOrigin: "center center",
-                transition: "transform 0.15s ease-out",
+          <div className="absolute right-4 top-4 z-20 flex flex-col gap-1.5 rounded-2xl border border-border/60 bg-card/90 p-1.5 shadow-soft backdrop-blur">
+            <CtrlBtn onClick={() => setZoom((z) => Math.min(1.8, z + 0.1))}>
+              <ZoomIn className="h-3.5 w-3.5" />
+            </CtrlBtn>
+            <CtrlBtn onClick={() => setZoom((z) => Math.max(0.5, z - 0.1))}>
+              <ZoomOut className="h-3.5 w-3.5" />
+            </CtrlBtn>
+            <CtrlBtn
+              onClick={() => {
+                setZoom(1);
+                setPan({ x: 0, y: 0 });
               }}
             >
-              {/* Render Connections */}
-              {edges.map((edge, i) => {
-                const source = nodeMap[edge.from];
-                const target = nodeMap[edge.to];
-                if (!source || !target) return null;
+              <Maximize2 className="h-3.5 w-3.5" />
+            </CtrlBtn>
+          </div>
 
-                const isPathActive = activePaths.some(
-                  (p) => p.from === edge.from && p.to === edge.to
-                );
+          <div className="absolute left-4 top-4 z-20 rounded-2xl border border-border/60 bg-card/90 px-3 py-2 text-[11px] shadow-soft backdrop-blur">
+            <div className="flex items-center gap-2">
+              <NetIcon className="h-3 w-3 text-primary" />
+              <span className="font-semibold">ICD-10 Taxonomy Branch</span>
+            </div>
+            <div className="mt-1.5 flex items-center gap-3 text-muted-foreground">
+              <span className="inline-block h-2 w-2 rounded-full bg-primary" /> active concept
+              <span className="inline-block h-2 w-2 rounded-full bg-muted-foreground/30" /> traversable
+            </div>
+          </div>
 
+          <div className="absolute inset-0 z-10 cursor-grab active:cursor-grabbing">
+            <svg
+              viewBox="0 0 1000 560"
+              className="h-full w-full"
+              style={{
+                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                transformOrigin: "center",
+                transition: "transform 0.25s ease",
+              }}
+            >
+              <defs>
+                <linearGradient id="lit" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="oklch(0.78 0.13 15)" />
+                  <stop offset="100%" stopColor="oklch(0.85 0.08 150)" />
+                </linearGradient>
+              </defs>
+
+              {edges.map((e, index) => {
+                const a = nodeMap.get(e.from);
+                const b = nodeMap.get(e.to);
+                if (!a || !b) return null;
+
+                const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 - 20 };
                 return (
-                  <g key={i}>
-                    <line
-                      x1={source.x}
-                      y1={source.y}
-                      x2={target.x}
-                      y2={target.y}
-                      className={`stroke-2 transition-colors duration-300 ${
-                        isPathActive ? "stroke-primary" : "stroke-border/70"
-                      }`}
-                      strokeDasharray={edge.from === "ROOT" ? "4 4" : undefined}
-                    />
-                  </g>
+                  <path
+                    key={`edge-${e.from}-${e.to}-${index}`}
+                    d={`M${a.x},${a.y + 22} Q${mid.x},${mid.y} ${b.x},${b.y - 22}`}
+                    fill="none"
+                    stroke="url(#lit)"
+                    strokeWidth={2}
+                  />
                 );
               })}
 
-              {/* Render Node Points */}
-              {nodes.map((node) => {
-                const isSelected = selectedNodeId === node.id;
-                let colorClasses = "fill-primary";
-                if (node.level === 1) colorClasses = "fill-emerald-600";
-                if (node.level === 2) colorClasses = "fill-amber-500";
-
+              {nodes.map((n) => {
+                const isSel = selectedNodeId === n.id;
                 return (
                   <g
-                    key={node.id}
-                    transform={`translate(${node.x}, ${node.y})`}
-                    onClick={() => setSelectedNodeId(node.id)}
+                    key={`node-${n.id}`}
+                    transform={`translate(${n.x}, ${n.y})`}
+                    onClick={() => setSelectedNodeId(n.id)}
                     className="cursor-pointer"
                   >
+                    {isSel && (
+                      <circle
+                        r={32}
+                        fill="oklch(0.74 0.12 12 / 0.18)"
+                        className="animate-ping"
+                      />
+                    )}
                     <circle
-                      r={isSelected ? 18 : 13}
-                      className={`${colorClasses} stroke-background stroke-[3px] transition-all duration-200 hover:r-20`}
+                      r={22}
+                      fill={
+                        isSel
+                          ? "oklch(0.88 0.08 15)"
+                          : n.level === 0
+                          ? "oklch(0.94 0.04 15)"
+                          : "oklch(0.97 0.02 15)"
+                      }
+                      stroke={isSel ? "oklch(0.7 0.13 15)" : "oklch(0.88 0.02 15)"}
+                      strokeWidth={isSel ? 3 : 1.5}
                     />
+                    
+                    <circle r={8} fill={isSel ? "oklch(0.7 0.13 15)" : "oklch(0.88 0.02 15)"} />
+                    
                     <text
-                      y={30}
-                      className="font-sans text-[11px] font-bold fill-foreground/90 text-center"
+                      y={42}
                       textAnchor="middle"
+                      className="fill-foreground text-[10px] font-medium"
                     >
-                      {node.id}
+                      {n.label}
                     </text>
                   </g>
                 );
               })}
             </svg>
           </div>
-        </section>
 
-        {/* Focus Inspector Card */}
+          <div className="absolute bottom-3 right-4 z-20 rounded-full bg-card/80 px-3 py-1 font-mono text-[10px] text-muted-foreground backdrop-blur">
+            zoom {(zoom * 100).toFixed(0)}%
+          </div>
+        </div>
+
         <aside className="space-y-4">
           <div className="rounded-3xl border border-border/60 bg-card p-5 shadow-soft">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-4">
-              <NetIcon className="h-4 w-4 text-primary" /> Concept Inspector
+            <div className="text-[11px] uppercase tracking-widest text-muted-foreground">
+              Selected Node
             </div>
-
             {selectedNode ? (
-              <div className="space-y-3">
-                <Field k="Ontology Identifier Code" v={selectedNode.id} />
-                <Field k="Descriptive Medical Name" v={selectedNode.label} />
-                <Field k="Hierarchy Domain Tier" v={`Level Depth Rank: ${selectedNode.level}`} />
-                <Field 
-                  k="Active Local Bounds" 
-                  v={`${edges.filter(e => e.from === selectedNode.id || e.to === selectedNode.id).length} direct mappings`} 
-                />
-              </div>
+              <>
+                <h3 className="mt-1 text-base font-semibold leading-snug">{selectedNode.label}</h3>
+                <code className="mt-1 inline-block rounded-md bg-muted px-1.5 py-0.5 font-mono text-[11px]">
+                  ontology.clinical.{selectedNode.id.toLowerCase()}
+                </code>
+                <dl className="mt-4 grid grid-cols-2 gap-2 text-[12px]">
+                  <Field k="Classification Level" v={`L${selectedNode.level}`} />
+                  <Field k="Identity Key" v={selectedNode.id} />
+                  <Field k="Active Node Status" v="Synchronized" />
+                  <Field k="Graph Context" v="Neo4j Layer" />
+                </dl>
+              </>
             ) : (
-              <p className="text-xs text-muted-foreground italic">Select any node point to inspect its semantic layout.</p>
+              <p className="text-xs text-muted-foreground italic mt-2">Select a node in the graph layout to review its clinical hierarchy properties.</p>
             )}
           </div>
         </aside>
@@ -265,15 +294,11 @@ function CtrlBtn({ children, onClick }: { children: React.ReactNode; onClick: ()
   );
 }
 
-function LegendDot({ className }: { className: string }) {
-  return <span className={`inline-block h-2 w-2 rounded-full ${className}`} />;
-}
-
 function Field({ k, v }: { k: string; v: string }) {
   return (
-    <div className="rounded-xl bg-muted/50 px-3 py-2.5">
+    <div className="rounded-xl bg-muted/60 px-2.5 py-2">
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{k}</div>
-      <div className="mt-0.5 text-[12.5px] font-semibold leading-tight text-foreground/90">{v}</div>
+      <div className="text-[12.5px] font-semibold">{v}</div>
     </div>
   );
 }
