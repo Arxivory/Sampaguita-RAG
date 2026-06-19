@@ -1,4 +1,5 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 import {
   FileText,
   Search,
@@ -6,6 +7,8 @@ import {
   FileJson,
   Heart,
   Stethoscope,
+  LogOut,
+  Loader2,
 } from "lucide-react";
 import {
   Sidebar,
@@ -19,6 +22,8 @@ import {
   SidebarMenuItem,
   SidebarFooter,
 } from "@/components/ui/sidebar";
+import { supabase } from "@/lib/api";
+import { toast } from "sonner";
 
 const items = [
   { title: "Upload Patient Charts", url: "/", icon: FileText, desc: "Import case logs" },
@@ -29,7 +34,30 @@ const items = [
 
 export function AppSidebar() {
   const currentPath = useRouterState({ select: (r) => r.location.pathname });
+  const navigate = useNavigate();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
   const isActive = (p: string) => currentPath === p;
+
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true);
+      
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+
+      localStorage.removeItem("sampaguita_auth_session");
+
+      toast.success("Successfully logged out of workspace.");
+      
+      navigate({ to: "/login" });
+    } catch (error: any) {
+      console.error("Logout trace boundary error:", error);
+      toast.error("Failed to cleanly disconnect session wrapper.");
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
 
   return (
     <Sidebar collapsible="icon">
@@ -44,6 +72,7 @@ export function AppSidebar() {
           </div>
         </div>
       </SidebarHeader>
+
       <SidebarContent className="px-2 py-4">
         <SidebarGroup>
           <SidebarGroupLabel className="px-3 text-[11px] uppercase tracking-widest text-muted-foreground/70">
@@ -73,7 +102,8 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="border-t border-sidebar-border/60 px-3 py-4 group-data-[collapsible=icon]:hidden">
+
+      <SidebarFooter className="border-t border-sidebar-border/60 p-3 gap-2 group-data-[collapsible=icon]:hidden">
         <div className="rounded-2xl bg-gradient-to-br from-primary/10 to-sage/40 p-3">
           <div className="flex items-center gap-2 text-xs font-medium">
             <Stethoscope className="h-3.5 w-3.5 text-primary" />
@@ -83,6 +113,22 @@ export function AppSidebar() {
             Synced with PhilHealth Konsulta &amp; eHATID-LGU
           </p>
         </div>
+
+        <button
+          onClick={handleLogout}
+          disabled={isLoggingOut}
+          className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left text-sm font-medium text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+        >
+          {isLoggingOut ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <LogOut className="h-4 w-4" />
+          )}
+          <div className="flex flex-col">
+            <span className="leading-tight">Logout</span>
+            <span className="text-[10px] text-muted-foreground/70">Exit Workspace</span>
+          </div>
+        </button>
       </SidebarFooter>
     </Sidebar>
   );
