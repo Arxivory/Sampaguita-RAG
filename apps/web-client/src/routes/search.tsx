@@ -28,7 +28,7 @@ type RealInferenceResponse = {
 function SearchPage() {
   const [ontological, setOntological] = useState(true);
   const [query, setQuery] = useState(
-    "Summarize cardiovascular history and check pulmonary contraindications for beta-blocker initiation."
+    ""
   );
   
   const [isLoading, setIsLoading] = useState(false);
