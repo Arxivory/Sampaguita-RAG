@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Search, Sparkles, Gauge, GitBranch, Zap, ChevronRight, Loader2, AlertCircle, FileText } from "lucide-react";
+import { Search, Sparkles, Gauge, GitBranch, Zap, Loader2, AlertCircle, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
 
