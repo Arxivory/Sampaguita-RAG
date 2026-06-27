@@ -108,7 +108,7 @@ function LoginPage() {
                 <Input
                   id="password"
                   type="password"
-                  placeholder="••••••••"
+                  placeholder="Your Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="rounded-xl pl-10"
