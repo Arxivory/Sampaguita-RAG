@@ -173,6 +173,8 @@ This project is actively under development. Core functionality is operational, i
 
 Contributions and feedback are welcome. Please refer to the issue tracker for current development priorities.
 
+Deployment is almost on the way.
+
 ## Documentation
 
 Refer to individual README files in each app directory:
