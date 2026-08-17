@@ -171,7 +171,7 @@ pnpm run dev:client
 
 This project is actively under development. Core functionality is operational, including document ingestion, graph-based retrieval, and clinical synthesis. Ongoing work includes refinement of search algorithms, enhanced visualization capabilities, and deployment optimization for resource-constrained environments. More ontological codes are currently being ingested.
 
-Contributions and feedback are welcome. Please refer to the issue tracker for current development priorities.
+Contributions and feedback are welcome.
 
 Deployment is almost on the way.
 
